@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADC B3 – GPU Load L4 Commissioning Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #000000;
+    --bg2: #0a0a0a;
+    --bg3: #111111;
+    --surface: #161616;
+    --surface2: #1e1e1e;
+    --border: rgba(255,255,255,0.10);
+    --border2: rgba(255,255,255,0.20);
+    --accent: #00C2A8;
+    --accent2: #009e88;
+    --accent-dim: rgba(0,194,168,0.12);
+    --accent-glow: rgba(0,194,168,0.06);
+    --text: #F5F5F5;
+    --text2: #999999;
+    --text3: #555555;
+    --warn: #e8a030;
+    --warn-bg: rgba(232,160,48,0.12);
+    --danger: #e05040;
+    --danger-bg: rgba(224,80,64,0.12);
+    --info: #50a8d8;
+    --info-bg: rgba(80,168,216,0.12);
+    --success: #60c878;
+    --success-bg: rgba(96,200,120,0.12);
+    --purple: #a878e0;
+    --purple-bg: rgba(168,120,224,0.12);
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px; line-height: 1.5; min-height: 100vh; }
+  
+  /* ── HEADER ── */
+  .header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border2);
+    padding: 20px 32px 16px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 20px;
+  }
+  .header-left h1 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 22px;
+    font-weight: 400;
+    color: var(--text);
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+  .header-left h1 span { color: var(--accent); font-style: italic; }
+  .header-left .sub { font-size: 11px; color: var(--text3); margin-top: 4px; letter-spacing: 0.05em; text-transform: uppercase; }
+  .header-right { display: flex; gap: 16px; align-items: center; flex-shrink: 0; }
+  .status-pill { padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 500; letter-spacing: 0.04em; }
+  .status-pill.active { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(168,200,64,0.3); }
+  .status-pill.today { background: var(--info-bg); color: var(--info); border: 1px solid rgba(80,168,216,0.3); }
+  .header-date { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text3); }
+
+  /* ── NAV ── */
+  .nav { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 0 32px; display: flex; gap: 2px; }
+  .nav-btn { padding: 10px 18px; font-size: 12px; font-family: 'DM Sans', sans-serif; color: var(--text3); background: none; border: none; cursor: pointer; border-bottom: 2px solid transparent; transition: all .15s; letter-spacing: 0.02em; }
+  .nav-btn:hover { color: var(--text2); }
+  .nav-btn.active { color: #00C2A8; border-bottom-color: #00C2A8; }
+
+  /* ── LAYOUT ── */
+  .main { padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
+  .panel { display: none; }
+  .panel.visible { display: block; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 20px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+
+  /* ── SECTION LABELS ── */
+  .sec-label { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text3); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .sec-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* ── METRIC CARDS ── */
+  .metric { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; position: relative; overflow: hidden; }
+  .metric::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+  .metric.accent::before { background: var(--accent); }
+  .metric.warn::before { background: var(--warn); }
+  .metric.danger::before { background: var(--danger); }
+  .metric.info::before { background: var(--info); }
+  .metric.ok::before { background: var(--success); }
+  .metric-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text3); margin-bottom: 6px; }
+  .metric-value { font-family: 'Outfit', sans-serif; font-size: 26px; font-weight: 400; color: var(--text); line-height: 1; }
+  .metric-value.warn { color: var(--warn); }
+  .metric-value.danger { color: var(--danger); }
+  .metric-value.ok { color: var(--success); }
+  .metric-value.accent { color: var(--accent); }
+  .metric-sub { font-size: 10px; color: var(--text3); margin-top: 5px; }
+
+  /* ── ALERT BAR ── */
+  .alert { background: var(--danger-bg); border: 1px solid rgba(224,80,64,0.3); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 20px; display: flex; align-items: flex-start; gap: 10px; font-size: 12px; color: #f08070; line-height: 1.5; }
+  .alert-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+  .alert strong { color: var(--danger); }
+
+  /* ── CARDS ── */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 18px; }
+  .card-title { font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 12px; display: flex; align-items: center; gap: 7px; }
+  .card-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ── ACTIVITY ITEMS ── */
+  .act-list { display: flex; flex-direction: column; gap: 5px; }
+  .act-item { padding: 7px 9px; border-radius: 6px; font-size: 11px; line-height: 1.4; display: flex; align-items: flex-start; gap: 7px; }
+  .act-item .wing-tag { font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500; flex-shrink: 0; padding: 1px 5px; border-radius: 3px; margin-top: 1px; }
+  .act-item.elec { background: var(--info-bg); color: #90c8e8; }
+  .act-item.elec .wing-tag { background: rgba(80,168,216,0.2); color: var(--info); }
+  .act-item.mech { background: var(--success-bg); color: #80d898; }
+  .act-item.mech .wing-tag { background: rgba(96,200,120,0.2); color: var(--success); }
+  .act-item.warn-item { background: var(--warn-bg); color: #f0b860; }
+  .act-item.warn-item .wing-tag { background: rgba(232,160,48,0.2); color: var(--warn); }
+
+  /* ── PROGRESS BARS ── */
+  .prog-wrap { margin-top: 4px; }
+  .prog-bar { height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; }
+  .prog-fill { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
+  .pct-label { font-family: 'DM Mono', monospace; font-size: 10px; margin-left: auto; flex-shrink: 0; margin-top: 1px; }
+
+  /* ── DELAY LOG ── */
+  .delay-list { display: flex; flex-direction: column; gap: 5px; }
+  .delay-item { padding: 7px 10px 7px 12px; border-left: 2px solid var(--warn); background: var(--warn-bg); border-radius: 0 6px 6px 0; font-size: 11px; color: #d8b870; line-height: 1.4; }
+  .delay-hrs { font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500; color: var(--warn); display: block; margin-bottom: 2px; }
+  .delay-item.danger-delay { border-left-color: var(--danger); background: var(--danger-bg); color: #e09080; }
+  .delay-item.danger-delay .delay-hrs { color: var(--danger); }
+
+  /* ── ISSUE PILLS ── */
+  .id-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .id-pill { font-family: 'DM Mono', monospace; font-size: 10px; padding: 2px 7px; border-radius: 4px; border: 1px solid var(--border2); color: var(--text3); }
+  .id-pill.closed { text-decoration: line-through; opacity: 0.45; }
+  .issue-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .issue-type { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; }
+  .badge { font-size: 10px; font-weight: 500; padding: 2px 8px; border-radius: 10px; }
+  .badge-crit { background: var(--danger-bg); color: var(--danger); border: 1px solid rgba(224,80,64,0.25); }
+  .badge-high { background: var(--warn-bg); color: var(--warn); border: 1px solid rgba(232,160,48,0.25); }
+  .badge-med { background: var(--info-bg); color: var(--info); border: 1px solid rgba(80,168,216,0.25); }
+  .badge-ok { background: var(--success-bg); color: var(--success); border: 1px solid rgba(96,200,120,0.25); }
+
+  /* ── SCHEDULE TABLE ── */
+  .tbl-wrap { overflow-x: auto; border-radius: var(--radius-lg); border: 1px solid var(--border); }
+  table.sched { border-collapse: collapse; width: 100%; font-size: 11px; min-width: 700px; }
+  table.sched th { background: var(--surface2); padding: 8px 10px; font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+  table.sched th.today { color: var(--accent); background: var(--accent-glow); }
+  table.sched td { padding: 7px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: top; min-width: 110px; }
+  table.sched td.row-lbl { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); background: var(--surface2); border-right: 1px solid var(--border); white-space: nowrap; }
+  table.sched td.today-col { background: rgba(168,200,64,0.04); }
+  table.sched tr:last-child td { border-bottom: none; }
+
+  /* ── SCHEDULE CHIPS ── */
+  .chip { display: inline-block; padding: 3px 6px; border-radius: 4px; font-size: 10px; line-height: 1.3; margin: 2px 0; width: 100%; }
+  .chip-stage { background: rgba(80,168,216,0.15); color: #90c8e8; }
+  .chip-destage { background: rgba(232,160,48,0.12); color: #d8a050; }
+  .chip-scan { background: rgba(232,160,48,0.18); color: #f0b860; }
+  .chip-pqm { background: rgba(96,200,120,0.15); color: #80d888; }
+  .chip-perf { background: rgba(224,80,64,0.15); color: #f09080; }
+  .chip-verify { background: rgba(255,255,255,0.06); color: var(--text2); border: 1px solid rgba(255,255,255,0.08); }
+  .chip-rvt { background: var(--purple-bg); color: #c8a0f0; border: 1px solid rgba(168,120,224,0.2); }
+  .chip-empty { color: var(--text3); font-style: italic; font-size: 10px; padding: 4px 0; }
+
+  /* ── RESOURCE TABLE ── */
+  .res-table { width: 100%; border-collapse: collapse; }
+  .res-table tr { border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .res-table tr:last-child { border-bottom: none; }
+  .res-table td { padding: 7px 10px; font-size: 12px; }
+  .res-table td:first-child { color: var(--text2); }
+  .res-table td:nth-child(2) { font-family: 'DM Mono', monospace; font-weight: 500; color: var(--text); text-align: right; }
+  .res-bar-cell { width: 100px; }
+  .rbar { height: 3px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; margin-top: 2px; }
+  .rbar-fill { height: 100%; border-radius: 2px; background: var(--accent); }
+  .res-note { font-size: 10px; color: var(--text3); font-style: italic; }
+  .vendor-row-support { font-size: 10px; color: var(--text3); padding: 2px 0; }
+
+  /* ── SUPPORT MATRIX ── */
+  .support-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .support-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .support-header { padding: 10px 14px; background: var(--surface2); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+  .support-header .act-name { font-size: 12px; font-weight: 500; color: var(--text); }
+  .support-header .act-phase { font-size: 10px; font-family: 'DM Mono', monospace; color: var(--text3); margin-left: auto; }
+  .support-body { padding: 10px 14px; }
+  .vendor-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 12px; font-size: 11px; margin: 2px; border: 1px solid var(--border); color: var(--text2); background: var(--bg3); }
+  .vendor-chip .vc-count { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--accent); font-weight: 500; }
+  .vendor-chips { display: flex; flex-wrap: wrap; margin-bottom: 6px; }
+  .sup-role-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; margin-top: 8px; }
+
+  /* ── TEAM ── */
+  .team-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+  .team-pill { font-size: 11px; padding: 4px 10px; border-radius: 14px; color: var(--text3); background: var(--surface2); border: 1px solid var(--border); }
+  .team-pill.lead { color: var(--accent); border-color: rgba(168,200,64,0.3); background: var(--accent-dim); }
+
+  /* ── LOOKAHEAD TABS ── */
+  .la-tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .la-tab { font-size: 11px; padding: 4px 14px; border-radius: 12px; border: 1px solid var(--border); background: transparent; color: var(--text3); cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all .15s; }
+  .la-tab.active { background: var(--accent-dim); color: var(--accent); border-color: rgba(168,200,64,0.3); }
+  .la-panel { display: none; }
+  .la-panel.visible { display: block; }
+  .la-item { padding: 6px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 11px; color: var(--text2); display: flex; align-items: flex-start; gap: 8px; }
+  .la-item:last-child { border-bottom: none; }
+  .la-item .bldg { font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500; color: var(--accent); flex-shrink: 0; margin-top: 1px; }
+  .la-item .cond { color: var(--text3); font-style: italic; }
+
+  /* ── LEGEND ── */
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+  .leg { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text3); }
+  .leg-sq { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+  /* ── SOUTHLAND WARNING ── */
+  .southland-warn { background: rgba(224,80,64,0.08); border: 1px solid rgba(224,80,64,0.25); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 16px; font-size: 11px; color: #e09080; line-height: 1.6; }
+  .southland-warn strong { color: var(--danger); }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+  @media (max-width: 900px) {
+    .grid-4 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .grid-2 { grid-template-columns: 1fr; }
+    .grid-3 { grid-template-columns: 1fr 1fr; }
+    .support-grid { grid-template-columns: 1fr; }
+    .header { flex-direction: column; align-items: flex-start; }
+    .main { padding: 16px; }
+    .header { padding: 16px; }
+    .nav { padding: 0 16px; overflow-x: auto; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <div style="display:flex;align-items:center;gap:20px;margin-bottom:10px;">
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAyAAAAHCCAMAAAAgvV36AAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAMAUExURQEBAQAAAAMDAwICAgcHBxQUFAsLCxcXFxEREQ8PDxgYGAoKCgYGBgUFBQ0NDRISEhMTExAQEA4ODgkJCQQEBBUVFQwMDAgICBYWFhkZGS0tLXp6enR0dGpqamdnZygoKGZmZv////7+/l1dXdHR0ff39/Hx8U1NTfr6+vz8/Pj4+IKCglpaWrCwsD4+PrGxsfn5+ezs7IaGhuLi4lVVVYSEhB0dHVJSUklJSVxcXIWFhe7u7m9vb9LS0nFxcXNzc/v7+2NjY9/f34eHh+Hh4SUlJVhYWP39/e/v7xoaGjs7O/X19a6urjk5Oevr67e3t4uLiyEhIfT09MfHxyAgINTU1Hh4eC8vLxsbG+Tk5MnJybi4uIGBgY+Pj4yMjMjIyNvb2zMzM1tbW35+fp+fn7y8vNDQ0NnZ2ebm5t3d3dfX17Ozs5SUlHJyciIiIpmZmRwcHKampuXl5TIyMnZ2drW1tdbW1l9fX3d3d5KSkvLy8ikpKYODg/Pz87q6upqamqurq2hoaEZGRrS0tOnp6erq6qGhoT09PVFRUSYmJsDAwJiYmFBQUDExMR8fHycnJzU1NXl5edra2ioqKra2tm5ubs3NzSQkJNzc3E5OTp6enkpKSujo6KKioh4eHo6OjkFBQSsrKzY2Nnx8fExMTHBwcJWVlURERPb29r+/v+Pj4y4uLufn55GRkampqU9PT87Ozu3t7VZWVt7e3uDg4H19fczMzFNTU0tLS7KyspaWlmFhYTo6OkdHR8LCwqqqqlRUVNPT0zw8PGBgYEBAQHt7ezg4OMPDw8bGxpycnCMjIzQ0NKenp7m5ucHBwaCgoEhISJCQkJubm6ioqFdXV4qKisTExK+vrz8/P2lpaYCAgDc3N2xsbI2NjcXFxZeXl2JiYllZWb6+vp2dnYmJiWVlZSwsLH9/f6Ojo0NDQ8rKytjY2Lu7u5OTk15eXjAwMPDw8EVFRaysrKSkpM/Pz729vW1tbXV1dWRkZKWlpa2trUJCQmtra8vLy9XV1QD/AJyBPTYAAAAadFJOUwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAZCuNJQAAAAFiS0dE/6UH8sUAAAAHdElNRQfqAxQRFBDNLSYqAAA3MklEQVR42u2dB5wURdrGu2ZYclpZQNFD35bF7hG1MQAHqC0IgyyCoCjoKWIgqXwIggLiKUkxYEABFREwLYIoJ2fkzIEPDBhORTAh6imeIub4+6q6J1T1zNTOsIvby/f872R3ZzpUdb1PV70V3jIMgwEAcgB5AKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEDATsKIRKLRGm9fNT4DINzUdAOr6ekHIcVgrfbc6y+t967pFlbDkw/CSpTtQxxzX/5bTQYCAZUmahhZ7KhWGyotpbZF1Z26ygGBgEri1xAZhmSw/ciyY7R/xlc1qkqBQEBl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BAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgAYIBAANEAgAGiAQADRAIABogEAA0ACBAKABAgFAAwQCgIb/A5Y17iHyK/3LAAAAAElFTkSuQmCC" alt="Crusoe" style="height:32px;width:auto;filter:brightness(1);" />
+      <div style="width:1px;height:32px;background:rgba(255,255,255,0.15);"></div>
+      <h1>ADC B3 — <span>GPU Load L4</span> Commissioning Dashboard</h1>
+    </div>
+    <div class="sub">Project Plaid · Abilene Data Center · OCI Client</div>
+  </div>
+  <div class="header-right">
+    <span class="status-pill active">L4 FPT Active</span>
+    <span class="status-pill today">Mar 20, 2026</span>
+    <div class="header-date">Veolia CxA · DCR #43842 / #43843</div>
+  </div>
+</div>
+
+<!-- NAV -->
+<div class="nav">
+  <button class="nav-btn active" onclick="switchTab('overview')">Overview</button>
+  <button class="nav-btn" onclick="switchTab('mar17')">Mar 17 DCR</button>
+  <button class="nav-btn" onclick="switchTab('mar18')">Mar 18 DCR</button>
+  <button class="nav-btn" onclick="switchTab('schedule')">GPU Load Schedule</button>
+  <button class="nav-btn" onclick="switchTab('support')">Vendor Support Matrix</button>
+  <button class="nav-btn" onclick="switchTab('lookahead')">3-Day Look-Ahead</button>
+</div>
+
+<div class="main">
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- OVERVIEW PANEL -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="panel visible" id="panel-overview">
+
+  <div class="alert">
+    <span class="alert-icon">⚠</span>
+    <div><strong>Arc Flash Event — 3ER21MSB1 Generator Breaker (Mar 18, 9:52 AM):</strong> Minor arc flash during L4 FPT. Breaker identified as faulty by Maverick. No injuries. Breaker replacement and safety review required before resuming B3 Core E scope. 3ER21MSB1 L4 FPT halted at 90%.</div>
+  </div>
+
+  <div class="sec-label">Project snapshot · Mar 20, 2026</div>
+  <div class="grid-4" style="margin-bottom:20px;">
+    <div class="metric accent">
+      <div class="metric-label">Active Wing</div>
+      <div class="metric-value accent">B3A</div>
+      <div class="metric-sub">Final day of Wing A block (Mar 15–20)</div>
+    </div>
+    <div class="metric warn">
+      <div class="metric-label">Total Delay Hrs (2 days)</div>
+      <div class="metric-value warn">80</div>
+      <div class="metric-sub">40 elec + 62 mech over Mar 17–18</div>
+    </div>
+    <div class="metric ok">
+      <div class="metric-label">Issues Closed (2 days)</div>
+      <div class="metric-value ok">15</div>
+      <div class="metric-sub">3 Critical · 4 High · 8 Medium</div>
+    </div>
+    <div class="metric warn">
+      <div class="metric-label">Issues Opened (2 days)</div>
+      <div class="metric-value warn">9</div>
+      <div class="metric-sub">0 Critical · 6 High · 3 Medium (Mar 17)</div>
+    </div>
+  </div>
+
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-title"><span class="card-dot" style="background:var(--accent)"></span>Wing sequence</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="background:var(--accent-dim);border:1px solid rgba(168,200,64,0.3);border-radius:6px;padding:10px 12px;">
+          <div style="font-size:11px;font-weight:500;color:var(--accent);">B3 Wing A — ACTIVE</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px;">Mar 15–20, 2026 · UPS 11–35 + GPU testing</div>
+        </div>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 12px;">
+          <div style="font-size:11px;font-weight:500;color:var(--text2);">B3 Wing D — NEXT</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px;">Mar 22 – Apr 3, 2026 · RVT testing included</div>
+        </div>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 12px;">
+          <div style="font-size:11px;font-weight:500;color:var(--text2);">B3 Wing C — UPCOMING</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px;">Apr 12–24, 2026 · RVT testing included</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="card-dot" style="background:var(--danger)"></span>Top recurring delays</div>
+      <div class="delay-list">
+        <div class="delay-item danger-delay">
+          <span class="delay-hrs">PATTERN — 2 days running</span>
+          Southland absent for L4 FPT support. 25+ delay hrs over Mar 17–18. Affects Wing D, Wing A RTU-2.
+        </div>
+        <div class="delay-item">
+          <span class="delay-hrs">PATTERN — BMS/SCADA</span>
+          Chiller Yard BMS/SCADA loss blocking L4 FPT. Wing C most affected. 15+ hrs over 2 days.
+        </div>
+        <div class="delay-item">
+          <span class="delay-hrs">ONE-TIME — Arc Flash</span>
+          3ER21MSB1 breaker faulty. Core E scope at 90%, paused pending Maverick review + replacement.
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="card-dot" style="background:var(--info)"></span>Daily resource plan</div>
+      <table class="res-table">
+        <tr><td>Veolia (CxA)</td><td>8</td><td class="res-bar-cell"><div class="rbar"><div class="rbar-fill" style="width:80%"></div></div></td></tr>
+        <tr><td>REI</td><td>10</td><td class="res-bar-cell"><div class="rbar"><div class="rbar-fill" style="width:100%"></div></div></td></tr>
+        <tr><td>Schneider</td><td>4</td><td class="res-bar-cell"><div class="rbar"><div class="rbar-fill" style="width:40%"></div></div></td></tr>
+        <tr><td>DG</td><td>3</td><td class="res-bar-cell"><div class="rbar"><div class="rbar-fill" style="width:30%"></div></div></td></tr>
+        <tr><td>TechPlan</td><td>2</td><td class="res-bar-cell"><div class="rbar"><div class="rbar-fill" style="width:20%"></div></div></td></tr>
+        <tr><td>Ascent</td><td>2</td><td class="res-bar-cell"><div class="rbar"><div class="rbar-fill" style="width:20%"></div></div></td></tr>
+        <tr><td>Maverick</td><td>2</td><td class="res-bar-cell"><div class="rbar"><div class="rbar-fill" style="width:20%"></div></div></td></tr>
+        <tr><td>Airedale</td><td>2</td><td class="res-bar-cell"><div class="rbar"><div class="rbar-fill" style="width:20%"></div></div></td></tr>
+        <tr><td>Southland</td><td>2</td><td class="res-bar-cell"><div class="rbar"><div class="rbar-fill" style="width:20%;background:var(--danger)"></div></div></td></tr>
+        <tr style="border-top:1px solid var(--border2)"><td style="font-weight:500;color:var(--text);">Total / day</td><td style="font-family:'Fraunces',serif;font-size:18px;color:var(--accent);">35</td><td></td></tr>
+      </table>
+      <div class="res-note" style="margin-top:6px;">+ JLL (2) added for B3D &amp; B3C phases</div>
+    </div>
+  </div>
+
+  <div class="sec-label">Wing A progress — today's activity (Mar 20)</div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title"><span class="card-dot" style="background:var(--info)"></span>Electrical — today</div>
+      <div class="act-list">
+        <div class="act-item elec"><span class="wing-tag">B3A</span><div>PQM installation at 3A21–25 UPSs for GPU Load Test + UPS Metering Validation</div></div>
+        <div class="act-item elec"><span class="wing-tag">B3A</span><div>31–35 UPS PQM Install</div></div>
+        <div class="act-item elec"><span class="wing-tag">B3A</span><div>21–25 UPS PQM Removal (concurrent with 31–35 install)</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="card-dot" style="background:var(--success)"></span>Mechanical — today</div>
+      <div class="act-list">
+        <div class="act-item mech"><span class="wing-tag">B3A</span><div>21–25 UPS Performance Testing · Metering Validation</div></div>
+        <div class="act-item mech"><span class="wing-tag">B3A</span><div>Burn-in, Thermal Scan, Discharge Test for 3A21–3A25</div></div>
+        <div class="act-item mech"><span class="wing-tag">B3A</span><div>GPU Load Test + Thermal Scans of Mech Transformers <span style="color:var(--text3);font-style:italic;">(if avail.)</span></div></div>
+        <div class="act-item mech"><span class="wing-tag">B3A</span><div>RPPs BCM Verification cont'd <span style="color:var(--text3);font-style:italic;">(if avail.)</span></div></div>
+        <div class="act-item mech"><span class="wing-tag">B3A</span><div>Load Staging 0→Max · Duration 12 hrs · Max load required</div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- MAR 17 DCR PANEL -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="panel" id="panel-mar17">
+
+  <div class="sec-label">Daily commissioning report — March 17, 2026 · #43842</div>
+  <div class="grid-4" style="margin-bottom:20px;">
+    <div class="metric warn"><div class="metric-label">Electrical delays</div><div class="metric-value warn">9 hrs</div><div class="metric-sub">4 CxA × 1 hr · B3 Wing D comms loss</div></div>
+    <div class="metric danger"><div class="metric-label">Mechanical delays</div><div class="metric-value danger">31 hrs</div><div class="metric-sub">9 distinct delay events</div></div>
+    <div class="metric warn"><div class="metric-label">Issues opened</div><div class="metric-value warn">9</div><div class="metric-sub">6 High · 3 Medium · 0 Critical</div></div>
+    <div class="metric ok"><div class="metric-label">Issues closed</div><div class="metric-value ok">7</div><div class="metric-sub">2 Critical · 1 High · 4 Medium</div></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title"><span class="card-dot" style="background:var(--info)"></span>Electrical progress</div>
+      <div class="act-list">
+        <div class="act-item elec"><span class="wing-tag">B3C</span><div>3CM13/22/23MSBR1 Non-Energized Breaker Testing + L4 FPT</div></div>
+        <div class="act-item elec"><span class="wing-tag">B3C</span><div>3C14/15/21 UPSs L4 FPT</div></div>
+        <div class="act-item elec"><span class="wing-tag">B3D</span><div>3DP11MSB1 + MSBR Non-Energized Breaker Testing (50%) + L4 FPT</div></div>
+        <div class="act-item elec"><span class="wing-tag">B3E</span><div>3E12MSB1 Non-Energized Breaker Testing + L4 FPT</div></div>
+        <div class="act-item elec"><span class="wing-tag">B3E</span><div>3EP11MSB1 L4 FPT</div></div>
+        <div class="act-item elec"><span class="wing-tag">B4B</span><div>Transformer Alarm L4 Checks</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="card-dot" style="background:var(--success)"></span>Mechanical progress</div>
+      <div class="act-list">
+        <div class="act-item mech"><span class="wing-tag">B3A/D</span><div>Issue resolution</div></div>
+        <div class="act-item mech"><span class="wing-tag">B3D</span>
+          <div style="flex:1">MUA-1 Combined L3/4 FPT
+            <div class="prog-wrap"><div style="display:flex;align-items:center;gap:6px;"><div class="prog-bar" style="flex:1"><div class="prog-fill" style="width:60%;background:var(--warn)"></div></div><span class="pct-label" style="color:var(--warn);">60%</span></div></div>
+          </div>
+        </div>
+        <div class="act-item mech"><span class="wing-tag">B3E</span>
+          <div style="flex:1">RTU-1 L4 FPT
+            <div class="prog-wrap"><div style="display:flex;align-items:center;gap:6px;"><div class="prog-bar" style="flex:1"><div class="prog-fill" style="width:10%;background:var(--danger)"></div></div><span class="pct-label" style="color:var(--danger);">10%</span></div></div>
+          </div>
+        </div>
+        <div class="act-item mech"><span class="wing-tag">B3C</span><div>CH-13/14 Burn-in completed ✓</div></div>
+        <div class="act-item mech"><span class="wing-tag">B3C</span>
+          <div style="flex:1">Chiller 16 L4 FPT
+            <div class="prog-wrap"><div style="display:flex;align-items:center;gap:6px;"><div class="prog-bar" style="flex:1"><div class="prog-fill" style="width:95%;background:var(--success)"></div></div><span class="pct-label" style="color:var(--success);">95%</span></div></div>
+          </div>
+        </div>
+        <div class="act-item mech"><span class="wing-tag">B3C</span>
+          <div style="flex:1">Chiller 15 L4 FPT (DG)
+            <div class="prog-wrap"><div style="display:flex;align-items:center;gap:6px;"><div class="prog-bar" style="flex:1"><div class="prog-fill" style="width:90%;background:var(--accent)"></div></div><span class="pct-label" style="color:var(--accent);">90%</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-title"><span class="card-dot" style="background:var(--warn)"></span>Mechanical delay log — 31 hours total</div>
+    <div class="delay-list">
+      <div class="delay-item"><span class="delay-hrs">1 CxA × 3 hrs · B3 E-Core</span>DG troubleshooting 3E-RTU-2 deviation alarms</div>
+      <div class="delay-item danger-delay"><span class="delay-hrs">1 CxA × 8 hrs · B3 E-Core</span>Southland troubleshooting 3E-RTU-1</div>
+      <div class="delay-item danger-delay"><span class="delay-hrs">1 CxA × 8 hrs · B3 Wing D</span>Southland not present for L4 FPT of 3D-MUA-1</div>
+      <div class="delay-item"><span class="delay-hrs">1 CxA × 5 hrs · B3 Wing D</span>Campos performing TAB on 3D-RTU-1 &amp; 2</div>
+      <div class="delay-item danger-delay"><span class="delay-hrs">1 CxA × 10 hrs · B3 Wing C</span>BMS not complete/fully operational for FCAs/AHUs</div>
+      <div class="delay-item"><span class="delay-hrs">1 CxA × 6 hrs · B3 E-Core</span>BMS/SCADA loss preventing VAV L4 FPT</div>
+      <div class="delay-item"><span class="delay-hrs">1 CxA × 6 hrs · B3 Wing C Chiller Yard</span>BMS/SCADA loss preventing L4 FPT (day shift)</div>
+      <div class="delay-item"><span class="delay-hrs">1 CxA × 2 hrs · B3 Wing C Chiller Yard</span>BMS/SCADA loss preventing L4 FPT (night shift)</div>
+      <div class="delay-item"><span class="delay-hrs">1 CxA × 1 hr · B3 Wing C Chiller Yard</span>DG troubleshooting 3C-CH-14 BMS communication failure</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title"><span class="card-dot" style="background:var(--warn)"></span>Issues opened today</div>
+      <div class="issue-row"><span class="issue-type" style="color:var(--warn);">High</span><span class="badge badge-high">6</span></div>
+      <div class="id-row"><span class="id-pill">11197</span><span class="id-pill">11198</span><span class="id-pill">11199</span><span class="id-pill">11205</span><span class="id-pill">11206</span><span class="id-pill">11207</span></div>
+      <div class="issue-row" style="margin-top:10px;"><span class="issue-type" style="color:var(--info);">Medium</span><span class="badge badge-med">3</span></div>
+      <div class="id-row"><span class="id-pill">11177</span><span class="id-pill">11196</span><span class="id-pill">11200</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="card-dot" style="background:var(--success)"></span>Issues closed today</div>
+      <div class="issue-row"><span class="issue-type" style="color:var(--danger);">Critical</span><span class="badge badge-ok">2</span></div>
+      <div class="id-row"><span class="id-pill closed">10842</span><span class="id-pill closed">10918</span></div>
+      <div class="issue-row" style="margin-top:10px;"><span class="issue-type" style="color:var(--warn);">High</span><span class="badge badge-ok">1</span></div>
+      <div class="id-row"><span class="id-pill closed">8294</span></div>
+      <div class="issue-row" style="margin-top:10px;"><span class="issue-type" style="color:var(--info);">Medium</span><span class="badge badge-ok">4</span></div>
+      <div class="id-row"><span class="id-pill closed">10601</span><span class="id-pill closed">10576</span><span class="id-pill closed">10484</span><span class="id-pill closed">6665</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- MAR 18 DCR PANEL -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="panel" id="panel-mar18">
+
+  <div class="alert">
+    <span class="alert-icon">⚠</span>
+    <div><strong>Arc Flash — 3ER21MSB1 Generator Breaker (9:52 AM):</strong> Minor arc flash during L4 FPT on 3ER21MSB1. Breaker identified as faulty per Maverick assessment. No injuries reported. Testing halted at 90% completion. Maverick safety review and breaker replacement required before resuming.</div>
+  </div>
+
+  <div class="grid-4" style="margin-bottom:20px;">
+    <div class="metric warn"><div class="metric-label">Electrical delays</div><div class="metric-value warn">9 hrs</div><div class="metric-sub">0 CxA billed · arc flash incident</div></div>
+    <div class="metric danger"><div class="metric-label">Mechanical delays</div><div class="metric-value danger">31 hrs</div><div class="metric-sub">3 events · Southland + BMS</div></div>
+    <div class="metric ok"><div class="metric-label">Issues opened</div><div class="metric-value ok">0</div><div class="metric-sub">No new issues logged</div></div>
+    <div class="metric ok"><div class="metric-label">Issues closed</div><div class="metric-value ok">8</div><div class="metric-sub">1 Critical · 3 High · 4 Medium</div></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title"><span class="card-dot" style="background:var(--info)"></span>Electrical progress</div>
+      <div class="act-list">
+        <div class="act-item elec"><span class="wing-tag">B3A</span><div>PQM installation at 3A21–25 UPSs · GPU Load Test + UPS Metering Validation</div></div>
+        <div class="act-item elec"><span class="wing-tag">B3A</span><div>RPPs BCM Verification — <strong style="color:var(--success)">4/4 Pass</strong></div></div>
+        <div class="act-item elec"><span class="wing-tag">B3C</span><div>3CR11MSB1 + 3CM21MSBR1 Non-Energized Breaker Testing</div></div>
+        <div class="act-item elec"><span class="wing-tag">B3C</span><div>3CM21MSBR1 L4 FPT</div></div>
+        <div class="act-item elec"><span class="wing-tag">B3C</span><div>RPPs 2A/2B/2D/2F/2L/2N/2Q LDS/Shunt Trip L4 Checks</div></div>
+        <div class="act-item warn-item"><span class="wing-tag">B3E</span>
+          <div style="flex:1">3ER21MSB1 Non-Energized Breaker Testing + L4 FPT — <strong style="color:var(--danger)">HALTED</strong>
+            <div class="prog-wrap"><div style="display:flex;align-items:center;gap:6px;"><div class="prog-bar" style="flex:1"><div class="prog-fill" style="width:90%;background:var(--danger)"></div></div><span class="pct-label" style="color:var(--danger);">90%</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="card-dot" style="background:var(--success)"></span>Mechanical progress</div>
+      <div class="act-list">
+        <div class="act-item mech"><span class="wing-tag">B3C</span>
+          <div style="flex:1">Chillers 13–15 L4 FPT
+            <div class="prog-wrap"><div style="display:flex;align-items:center;gap:6px;"><div class="prog-bar" style="flex:1"><div class="prog-fill" style="width:95%;background:var(--success)"></div></div><span class="pct-label" style="color:var(--success);">95%</span></div></div>
+          </div>
+        </div>
+        <div class="act-item mech"><span class="wing-tag">B3C</span>
+          <div style="flex:1">Chiller 12 L4 FPT
+            <div class="prog-wrap"><div style="display:flex;align-items:center;gap:6px;"><div class="prog-bar" style="flex:1"><div class="prog-fill" style="width:25%;background:var(--danger)"></div></div><span class="pct-label" style="color:var(--danger);">25%</span></div></div>
+          </div>
+        </div>
+        <div class="act-item mech"><span class="wing-tag">B3C</span><div>Chillers 13/14 IR scans — <strong style="color:var(--success)">100% complete ✓</strong></div></div>
+        <div class="act-item mech"><span class="wing-tag">B3A</span>
+          <div style="flex:1">RTU-2 L4 FPT
+            <div class="prog-wrap"><div style="display:flex;align-items:center;gap:6px;"><div class="prog-bar" style="flex:1"><div class="prog-fill" style="width:30%;background:var(--danger)"></div></div><span class="pct-label" style="color:var(--danger);">30%</span></div></div>
+          </div>
+        </div>
+        <div class="act-item mech"><span class="wing-tag">B3</span><div>Building-wide issue resolution</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-title"><span class="card-dot" style="background:var(--warn)"></span>Mechanical delay log — 31 hours total</div>
+    <div class="delay-list">
+      <div class="delay-item danger-delay"><span class="delay-hrs">1 CxA × 9 hrs · B3 Wing D</span>Southland not available to support L4 FPT of 3D-MUA-1 (second consecutive day)</div>
+      <div class="delay-item danger-delay"><span class="delay-hrs">1 CxA × 9 hrs · B3 Wing A</span>Southland not available to support L4 FPT of 3A-RTU-2</div>
+      <div class="delay-item"><span class="delay-hrs">1 CxA × 7 hrs · B3 Wing C Chiller Yard</span>BMS/SCADA loss preventing L4 FPT (second consecutive occurrence)</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title"><span class="card-dot" style="background:var(--text3)"></span>Issues opened today</div>
+      <div style="font-size:12px;color:var(--text3);font-style:italic;padding:6px 0;">No new issues logged on March 18.</div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="card-dot" style="background:var(--success)"></span>Issues closed today</div>
+      <div class="issue-row"><span class="issue-type" style="color:var(--danger);">Critical</span><span class="badge badge-ok">1</span></div>
+      <div class="id-row"><span class="id-pill closed">9348</span></div>
+      <div class="issue-row" style="margin-top:10px;"><span class="issue-type" style="color:var(--warn);">High</span><span class="badge badge-ok">3</span></div>
+      <div class="id-row"><span class="id-pill closed">8502</span><span class="id-pill closed">7553</span><span class="id-pill closed">8251</span></div>
+      <div class="issue-row" style="margin-top:10px;"><span class="issue-type" style="color:var(--info);">Medium</span><span class="badge badge-ok">4</span></div>
+      <div class="id-row"><span class="id-pill closed">10905</span><span class="id-pill closed">7425</span><span class="id-pill closed">9129</span><span class="id-pill closed">10290</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- SCHEDULE PANEL -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="panel" id="panel-schedule">
+
+  <div class="sec-label">GPU Load L4 Test Schedule · B3 Wings A → D → C · Mar 15 – May 1, 2026</div>
+  <div class="grid-4" style="margin-bottom:20px;">
+    <div class="metric accent"><div class="metric-label">Schedule span</div><div class="metric-value accent">47 days</div><div class="metric-sub">Mar 15 → May 1, 2026</div></div>
+    <div class="metric info"><div class="metric-label">Load duration/day</div><div class="metric-value">12 hrs</div><div class="metric-sub">Max load required throughout</div></div>
+    <div class="metric ok"><div class="metric-label">Total resources/day</div><div class="metric-value ok">35+</div><div class="metric-sub">All vendors (+ JLL for D/C phases)</div></div>
+    <div class="metric warn"><div class="metric-label">Buffer windows</div><div class="metric-value warn">2</div><div class="metric-sub">Apr 5–10 · Apr 26–May 1</div></div>
+  </div>
+
+  <div class="legend">
+    <div class="leg"><span class="leg-sq" style="background:#90c8e8"></span>Load staging (0→Max)</div>
+    <div class="leg"><span class="leg-sq" style="background:#d8a050"></span>Load de-staging (Max→0)</div>
+    <div class="leg"><span class="leg-sq" style="background:#f0b860"></span>Thermal / IR scan</div>
+    <div class="leg"><span class="leg-sq" style="background:#80d888"></span>PQM install / removal</div>
+    <div class="leg"><span class="leg-sq" style="background:#f09080"></span>UPS performance testing</div>
+    <div class="leg"><span class="leg-sq" style="background:rgba(255,255,255,0.2)"></span>Verification / ops</div>
+    <div class="leg"><span class="leg-sq" style="background:#c8a0f0"></span>RVT (redundancy/failover)</div>
+  </div>
+
+  <p class="sec-label" style="margin-top:8px;">B3 Wing A · Mar 15–20 · <span style="color:var(--accent);">ACTIVE TODAY</span></p>
+  <div class="tbl-wrap" style="margin-bottom:20px;">
+    <table class="sched">
+      <thead>
+        <tr>
+          <th style="min-width:80px;">Discipline</th>
+          <th>Mar 15</th><th>Mar 16</th><th>Mar 17</th><th>Mar 18</th><th>Mar 19</th><th class="today">★ Mar 20</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="row-lbl">Load</td>
+          <td><div class="chip chip-stage">Stage 0→Max</div></td>
+          <td><div class="chip chip-stage">Stage 0→Max</div></td>
+          <td><div class="chip chip-stage">Stage 0→Max</div></td>
+          <td><div class="chip chip-stage">Stage 0→Max</div></td>
+          <td><div class="chip chip-stage">Stage 0→Max</div></td>
+          <td class="today-col"><div class="chip chip-stage">Stage 0→Max</div></td>
+        </tr>
+        <tr>
+          <td class="row-lbl">Electrical</td>
+          <td><div class="chip chip-pqm">21–25 UPS PQM Install</div></td>
+          <td><div class="chip chip-pqm">21–25 UPS PQM Install</div></td>
+          <td><div class="chip chip-pqm">21–25 UPS PQM Install</div></td>
+          <td><div class="chip chip-pqm">31–35 UPS PQM Install</div></td>
+          <td><div class="chip chip-pqm">31–35 UPS PQM Install</div></td>
+          <td class="today-col"><div class="chip chip-pqm">31–35 UPS PQM Install</div><div class="chip chip-pqm">21–25 PQM Removal</div></td>
+        </tr>
+        <tr>
+          <td class="row-lbl">Mechanical</td>
+          <td><div class="chip chip-verify">FWS Operation Verification</div><div class="chip chip-verify">CDU Operating Modes</div><div class="chip chip-verify">FCA Operating Modes</div></td>
+          <td><div class="chip chip-verify">FWS Operation Verification</div><div class="chip chip-verify">CDU Operating Modes</div><div class="chip chip-verify">FCA Operating Modes</div></td>
+          <td><div class="chip chip-verify">FWS Operation Verification</div><div class="chip chip-verify">CDU Operating Modes</div><div class="chip chip-verify">FCA Operating Modes</div></td>
+          <td><div class="chip chip-perf">21–25 UPS Perf. Testing</div><div class="chip chip-pqm">21–25 PQM Removal</div><div class="chip chip-perf">11–15 Battery Discharge</div></td>
+          <td><div class="chip chip-perf">21–25 UPS Perf. Testing</div><div class="chip chip-pqm">31–35 PQM Removal</div></td>
+          <td class="today-col"><div class="chip chip-perf">21–25 UPS Perf. Testing</div><div class="chip chip-perf">Burn-in + Thermal Scan</div><div class="chip chip-verify">GPU Load Test</div></td>
+        </tr>
+        <tr>
+          <td class="row-lbl">De-stage</td>
+          <td><div class="chip chip-destage">Max→0</div></td>
+          <td><div class="chip chip-destage">Max→0</div></td>
+          <td><div class="chip chip-destage">Max→0</div></td>
+          <td><div class="chip chip-destage">Max→0</div></td>
+          <td><div class="chip chip-destage">Max→0</div></td>
+          <td class="today-col"><div class="chip chip-destage">Max→0</div></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="sec-label">B3 Wing D · Mar 22 – Apr 3, 2026</p>
+  <div class="tbl-wrap" style="margin-bottom:12px;">
+    <table class="sched">
+      <thead><tr><th>Discipline</th><th>Mar 22</th><th>Mar 23</th><th>Mar 24</th><th>Mar 25</th><th>Mar 26</th><th>Mar 27</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="row-lbl">Load</td>
+          <td><div class="chip chip-stage">Stage 0→Max</div></td>
+          <td><div class="chip chip-stage">Stage 0→Max</div></td>
+          <td><div class="chip chip-stage">Stage 0→Max</div></td>
+          <td><div class="chip chip-stage">Stage 0→Max</div></td>
+          <td colspan="2"><div class="chip-empty">—</div></td>
+        </tr>
+        <tr>
+          <td class="row-lbl">Electrical</td>
+          <td><div class="chip chip-scan">Critical Transformer Thermal Scan (11–35)</div></td>
+          <td><div class="chip chip-scan">Mech Transformer Thermal Scan (M11–M23; R11; R21)</div></td>
+          <td><div class="chip chip-pqm">11–15 UPS PQM Install</div></td>
+          <td><div class="chip chip-perf">11–15 UPS Perf. Testing</div></td>
+          <td><div class="chip chip-pqm">21–25 UPS PQM Install</div></td>
+          <td><div class="chip chip-perf">21–25 UPS Perf. Testing</div></td>
+        </tr>
+        <tr>
+          <td class="row-lbl">Mechanical</td>
+          <td><div class="chip chip-scan">Critical Lineup Thermal Scan (11–35)</div><div class="chip chip-scan">RPP Thermal Scan (11–35)</div><div class="chip chip-verify">RPP BCM Verification (11–35)</div></td>
+          <td><div class="chip chip-scan">Mech Lineup Thermal Scan</div><div class="chip chip-scan">RPP Thermal Scan (11–35)</div><div class="chip chip-verify">RPP BCM Verification (11–35)</div></td>
+          <td><div class="chip chip-verify">Prelim. FWS Plant Review</div><div class="chip chip-verify">RPP BCM Verification</div></td>
+          <td><div class="chip chip-verify">Prelim. FWS Plant Monitoring</div><div class="chip chip-verify">FCA Operating Modes</div></td>
+          <td><div class="chip chip-verify">FWS Operation Verification</div></td>
+          <td><div class="chip chip-verify">FWS Operation Verification</div></td>
+        </tr>
+        <tr>
+          <td class="row-lbl">De-stage</td>
+          <td><div class="chip chip-destage">Max→0</div></td>
+          <td><div class="chip chip-destage">Max→0</div></td>
+          <td><div class="chip chip-destage">Max→0</div></td>
+          <td><div class="chip chip-destage">Max→0</div></td>
+          <td colspan="2"><div class="chip-empty">—</div></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="tbl-wrap" style="margin-bottom:20px;">
+    <table class="sched">
+      <thead><tr><th>Discipline</th><th>Mar 29</th><th>Mar 30</th><th>Mar 31</th><th>Apr 1</th><th>Apr 2</th><th>Apr 3 (Float)</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="row-lbl">Load</td>
+          <td><div class="chip chip-stage">Stage 0→Max</div></td>
+          <td><div class="chip chip-stage">Stage 0→Max</div></td>
+          <td><div class="chip chip-stage">Stage 0→Max</div></td>
+          <td><div class="chip chip-stage">Stage 0→Max</div></td>
+          <td><div class="chip chip-stage">Stage 0→Max</div></td>
+          <td><div class="chip-empty">—</div></td>
+        </tr>
+        <tr>
+          <td class="row-lbl">Electrical</td>
+          <td><div class="chip chip-pqm">31–35 UPS PQM Install</div></td>
+          <td><div class="chip chip-perf">31–35 UPS Perf. Testing</div></td>
+          <td><div class="chip chip-rvt">FWS Staging/Redundancy/Failover RVT</div></td>
+          <td><div class="chip chip-rvt">FWS Redundancy/Failover RVT cont'd</div></td>
+          <td><div class="chip chip-rvt">FWS RVT cont'd</div></td>
+          <td><div class="chip-empty">—</div></td>
+        </tr>
+        <tr>
+          <td class="row-lbl">Mechanical</td>
+          <td><div class="chip chip-pqm">21–25 PQM Removal</div><div class="chip chip-verify">FCA Operating Modes</div><div class="chip chip-verify">CDU Operating Modes</div></td>
+          <td><div class="chip chip-pqm">31–35 PQM Removal</div><div class="chip chip-verify">FCA + CDU Operating Modes</div></td>
+          <td><div class="chip chip-rvt">TW Loop Staging/Redundancy RVT</div><div class="chip chip-rvt">FCA Redundancy/Failover RVT</div><div class="chip chip-verify">FCA + CDU Operating Modes</div></td>
+          <td><div class="chip chip-rvt">TW Loop RVT cont'd</div><div class="chip chip-rvt">FCA Redundancy/Failover RVT</div><div class="chip chip-verify">FCA + CDU Operating Modes</div></td>
+          <td><div class="chip chip-rvt">TW Loop + FCA RVT cont'd</div><div class="chip chip-verify">FCA + CDU Operating Modes</div></td>
+          <td><div class="chip-empty">—</div></td>
+        </tr>
+        <tr>
+          <td class="row-lbl">De-stage</td>
+          <td><div class="chip chip-destage">Max→0</div></td>
+          <td><div class="chip chip-destage">Max→0</div></td>
+          <td><div class="chip chip-destage">Max→0</div></td>
+          <td><div class="chip chip-destage">Max→0</div></td>
+          <td><div class="chip chip-destage">Max→0</div></td>
+          <td><div class="chip-empty">—</div></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="sec-label">B3 Wing C · Apr 12–24, 2026</p>
+  <div class="tbl-wrap" style="margin-bottom:12px;">
+    <table class="sched">
+      <thead><tr><th>Discipline</th><th>Apr 12</th><th>Apr 13</th><th>Apr 14</th><th>Apr 15</th><th>Apr 16</th><th>Apr 17</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="row-lbl">Load</td>
+          <td><div class="chip chip-stage">Stage 0→Max</div></td>
+          <td><div class="chip chip-stage">Stage 0→Max</div></td>
+          <td><div class="chip chip-stage">Stage 0→Max</div></td>
+          <td><div class="chip chip-stage">Stage 0→Max</div></td>
+          <td><div class="chip chip-stage">Stage 0→Max</div></td>
+          <td><div class="chip-empty">—</div></td>
+        </tr>
+        <tr>
+          <td class="row-lbl">Electrical</td>
+          <td><div class="chip chip-scan">Critical Transformer Thermal Scan (11–35)</div></td>
+          <td><div class="chip chip-scan">Mech Transformer Thermal Scan (M11–M23; R11; R21)</div></td>
+          <td><div class="chip chip-pqm">11–15 UPS PQM Install</div></td>
+          <td><div class="chip chip-perf">11–15 UPS Perf. Testing</div></td>
+          <td><div class="chip chip-pqm">21–25 UPS PQM Install</div></td>
+          <td><div class="chip-empty">—</div></td>
+        </tr>
+        <tr>
+          <td class="row-lbl">Mechanical</td>
+          <td><div class="chip chip-scan">Critical Lineup Thermal Scan (11–35)</div><div class="chip chip-scan">RPP Thermal Scan (11–35)</div><div class="chip chip-verify">RPP BCM Verification (11–35)</div></td>
+          <td><div class="chip chip-scan">Mech Lineup Thermal Scan</div><div class="chip chip-scan">RPP Thermal Scan (11–35)</div><div class="chip chip-verify">RPP BCM Verification</div></td>
+          <td><div class="chip chip-pqm">11–15 PQM Removal</div><div class="chip chip-verify">RPP BCM Verification</div><div class="chip chip-verify">Prelim. FWS Plant Review</div></td>
+          <td><div class="chip chip-verify">Prelim. FWS Plant Monitoring</div><div class="chip chip-verify">FWS Operation Verification</div></td>
+          <td><div class="chip chip-perf">21–25 UPS Perf. Testing</div><div class="chip chip-verify">FWS Operation Verification</div><div class="chip chip-verify">FCA Operating Modes</div></td>
+          <td><div class="chip-empty">—</div></td>
+        </tr>
+        <tr><td class="row-lbl">De-stage</td>
+          <td><div class="chip chip-destage">Max→0</div></td>
+          <td><div class="chip chip-destage">Max→0</div></td>
+          <td><div class="chip chip-destage">Max→0</div></td>
+          <td><div class="chip chip-destage">Max→0</div></td>
+          <td><div class="chip chip-destage">Max→0</div></td>
+          <td><div class="chip-empty">—</div></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="tbl-wrap" style="margin-bottom:20px;">
+    <table class="sched">
+      <thead><tr><th>Discipline</th><th>Apr 19</th><th>Apr 20</th><th>Apr 21</th><th>Apr 22</th><th>Apr 23</th><th>Apr 24</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="row-lbl">Load</td>
+          <td><div class="chip chip-stage">Stage 0→Max</div></td>
+          <td><div class="chip chip-stage">Stage 0→Max</div></td>
+          <td><div class="chip chip-stage">Stage 0→Max</div></td>
+          <td><div class="chip chip-stage">Stage 0→Max</div></td>
+          <td><div class="chip chip-stage">Stage 0→Max</div></td>
+          <td><div class="chip-empty">—</div></td>
+        </tr>
+        <tr>
+          <td class="row-lbl">Electrical</td>
+          <td><div class="chip chip-perf">31–35 UPS Perf. Testing</div></td>
+          <td><div class="chip chip-rvt">FWS Staging/Redundancy/Failover RVT</div></td>
+          <td><div class="chip chip-rvt">FWS RVT cont'd</div></td>
+          <td><div class="chip chip-rvt">FWS RVT cont'd</div></td>
+          <td><div class="chip chip-rvt">FWS RVT cont'd</div></td>
+          <td><div class="chip-empty">—</div></td>
+        </tr>
+        <tr>
+          <td class="row-lbl">Mechanical</td>
+          <td><div class="chip chip-pqm">31–35 PQM Removal</div><div class="chip chip-verify">FCA + CDU Operating Modes</div></td>
+          <td><div class="chip chip-rvt">TW Loop Staging/Redundancy RVT</div><div class="chip chip-rvt">FCA Redundancy/Failover RVT</div><div class="chip chip-verify">FCA Operating Modes</div></td>
+          <td><div class="chip chip-rvt">TW Loop RVT cont'd</div><div class="chip chip-rvt">FCA Redundancy/Failover RVT</div><div class="chip chip-verify">FCA + CDU Operating Modes</div></td>
+          <td><div class="chip chip-rvt">TW Loop RVT cont'd</div><div class="chip chip-rvt">FCA Failover RVT</div><div class="chip chip-verify">FCA + CDU Operating Modes</div></td>
+          <td><div class="chip chip-rvt">TW Loop + FCA RVT cont'd</div></td>
+          <td><div class="chip-empty">—</div></td>
+        </tr>
+        <tr><td class="row-lbl">De-stage</td>
+          <td><div class="chip chip-destage">Max→0</div></td>
+          <td><div class="chip chip-destage">Max→0</div></td>
+          <td><div class="chip chip-destage">Max→0</div></td>
+          <td><div class="chip chip-destage">Max→0</div></td>
+          <td><div class="chip chip-destage">Max→0</div></td>
+          <td><div class="chip-empty">—</div></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- VENDOR SUPPORT MATRIX PANEL -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="panel" id="panel-support">
+
+  <div class="sec-label">Vendor support required by activity · all wings</div>
+
+  <div class="southland-warn">
+    <strong>⚠ Southland — Confirmed Pattern of Non-Performance:</strong> Southland (2 resources / day, every day across all wings) was absent for L4 FPT support on both Mar 17 and Mar 18, contributing <strong>25+ documented delay hours</strong>. Wing D kicks off Mar 22 with Southland required for MUA and RTU support. Formal written notification recommended before Wing D commencement.
+  </div>
+
+  <div class="support-grid">
+
+    <div class="support-card">
+      <div class="support-header">
+        <div class="card-dot" style="background:var(--info)"></div>
+        <div class="act-name">GPU Load Test + UPS Metering Validation</div>
+        <div class="act-phase">B3A · Mar 18–20</div>
+      </div>
+      <div class="support-body">
+        <div class="sup-role-label">Primary execution</div>
+        <div class="vendor-chips">
+          <span class="vendor-chip">Veolia <span class="vc-count">8</span></span>
+          <span class="vendor-chip">Schneider <span class="vc-count">4</span></span>
+          <span class="vendor-chip">TechPlan <span class="vc-count">2</span></span>
+        </div>
+        <div class="sup-role-label">Metering / instrumentation</div>
+        <div class="vendor-chips">
+          <span class="vendor-chip">Maverick <span class="vc-count">2</span></span>
+          <span class="vendor-chip">Ascent <span class="vc-count">2</span></span>
+        </div>
+        <div class="sup-role-label">IT load provisioning (GPU racks)</div>
+        <div class="vendor-chips">
+          <span class="vendor-chip">REI <span class="vc-count">10</span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="support-card">
+      <div class="support-header">
+        <div class="card-dot" style="background:var(--warn)"></div>
+        <div class="act-name">Thermal / IR Scans (Transformers, Lineups, RPPs)</div>
+        <div class="act-phase">B3D Mar 22–23 · B3C Apr 12–13</div>
+      </div>
+      <div class="support-body">
+        <div class="sup-role-label">IR scanning execution</div>
+        <div class="vendor-chips">
+          <span class="vendor-chip">Veolia <span class="vc-count">8</span></span>
+          <span class="vendor-chip">Maverick <span class="vc-count">2</span></span>
+        </div>
+        <div class="sup-role-label">Electrical support / access</div>
+        <div class="vendor-chips">
+          <span class="vendor-chip">Schneider <span class="vc-count">1–4</span></span>
+          <span class="vendor-chip">TechPlan <span class="vc-count">2</span></span>
+        </div>
+        <div class="sup-role-label">Critical / mech lineup support</div>
+        <div class="vendor-chips">
+          <span class="vendor-chip">Ascent <span class="vc-count">2</span></span>
+          <span class="vendor-chip">DG <span class="vc-count">3</span></span>
+        </div>
+        <div class="sup-role-label">Load maintained during scans</div>
+        <div class="vendor-chips">
+          <span class="vendor-chip">REI <span class="vc-count">10</span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="support-card">
+      <div class="support-header">
+        <div class="card-dot" style="background:var(--success)"></div>
+        <div class="act-name">UPS PQM Install / Removal + Performance Testing</div>
+        <div class="act-phase">All wings · UPS groups 11–15, 21–25, 31–35</div>
+      </div>
+      <div class="support-body">
+        <div class="sup-role-label">PQM install / removal / testing</div>
+        <div class="vendor-chips">
+          <span class="vendor-chip">Veolia <span class="vc-count">8</span></span>
+          <span class="vendor-chip">Schneider <span class="vc-count">4</span></span>
+          <span class="vendor-chip">Maverick <span class="vc-count">2</span></span>
+        </div>
+        <div class="sup-role-label">UPS OEM support</div>
+        <div class="vendor-chips">
+          <span class="vendor-chip">Ascent <span class="vc-count">2</span></span>
+          <span class="vendor-chip">TechPlan <span class="vc-count">2</span></span>
+        </div>
+        <div class="sup-role-label">Battery discharge testing</div>
+        <div class="vendor-chips">
+          <span class="vendor-chip">Schneider <span class="vc-count">4</span></span>
+          <span class="vendor-chip">Maverick <span class="vc-count">2</span></span>
+          <span class="vendor-chip">DG <span class="vc-count">3</span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="support-card">
+      <div class="support-header">
+        <div class="card-dot" style="background:var(--success)"></div>
+        <div class="act-name">RPP BCM Verification (11–35)</div>
+        <div class="act-phase">B3D Mar 22–24 · B3C Apr 12–14</div>
+      </div>
+      <div class="support-body">
+        <div class="sup-role-label">BCM verification execution</div>
+        <div class="vendor-chips">
+          <span class="vendor-chip">Veolia <span class="vc-count">8</span></span>
+          <span class="vendor-chip">TechPlan <span class="vc-count">2</span></span>
+        </div>
+        <div class="sup-role-label">Electrical power support</div>
+        <div class="vendor-chips">
+          <span class="vendor-chip">Schneider <span class="vc-count">4</span></span>
+          <span class="vendor-chip">Maverick <span class="vc-count">2</span></span>
+        </div>
+        <div class="sup-role-label">Rack-level access</div>
+        <div class="vendor-chips">
+          <span class="vendor-chip">REI <span class="vc-count">10</span></span>
+          <span class="vendor-chip">Ascent <span class="vc-count">2</span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="support-card">
+      <div class="support-header">
+        <div class="card-dot" style="background:var(--info)"></div>
+        <div class="act-name">FWS Operation Verification + Prelim. Review / Monitoring</div>
+        <div class="act-phase">B3A Mar 15–17 · B3D Mar 24–27 · B3C Apr 14–17</div>
+      </div>
+      <div class="support-body">
+        <div class="sup-role-label">CxA / BMS oversight</div>
+        <div class="vendor-chips">
+          <span class="vendor-chip">Veolia <span class="vc-count">8</span></span>
+          <span class="vendor-chip">DG <span class="vc-count">3</span></span>
+        </div>
+        <div class="sup-role-label">Fluid / cooling system support</div>
+        <div class="vendor-chips">
+          <span class="vendor-chip">Airedale <span class="vc-count">2</span></span>
+          <span class="vendor-chip">Southland <span class="vc-count" style="color:var(--danger)">2 ⚠</span></span>
+        </div>
+        <div class="sup-role-label">Controls / BMS integration</div>
+        <div class="vendor-chips">
+          <span class="vendor-chip">TechPlan <span class="vc-count">2</span></span>
+          <span class="vendor-chip">Ascent <span class="vc-count">2</span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="support-card">
+      <div class="support-header">
+        <div class="card-dot" style="background:var(--info)"></div>
+        <div class="act-name">CDU Operating Mode Verification</div>
+        <div class="act-phase">B3A Mar 15–17 · B3D Mar 29–Apr 2 · B3C Apr 19–23</div>
+      </div>
+      <div class="support-body">
+        <div class="sup-role-label">CDU commissioning oversight</div>
+        <div class="vendor-chips">
+          <span class="vendor-chip">Veolia <span class="vc-count">8</span></span>
+          <span class="vendor-chip">Airedale <span class="vc-count">2</span></span>
+        </div>
+        <div class="sup-role-label">Controls / SCADA interface</div>
+        <div class="vendor-chips">
+          <span class="vendor-chip">DG <span class="vc-count">3</span></span>
+          <span class="vendor-chip">TechPlan <span class="vc-count">2</span></span>
+        </div>
+        <div class="sup-role-label">Mechanical trade support</div>
+        <div class="vendor-chips">
+          <span class="vendor-chip">Southland <span class="vc-count" style="color:var(--danger)">2 ⚠</span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="support-card">
+      <div class="support-header">
+        <div class="card-dot" style="background:var(--success)"></div>
+        <div class="act-name">FCA Operating Mode Verification</div>
+        <div class="act-phase">B3A Mar 15–17 · B3D Mar 25–Apr 2 · B3C Apr 16–23</div>
+      </div>
+      <div class="support-body">
+        <div class="sup-role-label">FCA commissioning execution</div>
+        <div class="vendor-chips">
+          <span class="vendor-chip">Veolia <span class="vc-count">8</span></span>
+          <span class="vendor-chip">Airedale <span class="vc-count">2</span></span>
+        </div>
+        <div class="sup-role-label">Controls / BMS</div>
+        <div class="vendor-chips">
+          <span class="vendor-chip">DG <span class="vc-count">3</span></span>
+          <span class="vendor-chip">TechPlan <span class="vc-count">2</span></span>
+        </div>
+        <div class="sup-role-label">Mechanical trade support</div>
+        <div class="vendor-chips">
+          <span class="vendor-chip">Southland <span class="vc-count" style="color:var(--danger)">2 ⚠</span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="support-card">
+      <div class="support-header">
+        <div class="card-dot" style="background:var(--purple)"></div>
+        <div class="act-name">FWS / TW Loop / FCA Redundancy &amp; Failover (RVT)</div>
+        <div class="act-phase">B3D Mar 31–Apr 2 · B3C Apr 20–23</div>
+      </div>
+      <div class="support-body">
+        <div class="sup-role-label">RVT execution / oversight</div>
+        <div class="vendor-chips">
+          <span class="vendor-chip">Veolia <span class="vc-count">8</span></span>
+          <span class="vendor-chip">DG <span class="vc-count">3</span></span>
+        </div>
+        <div class="sup-role-label">Failover switching / electrical</div>
+        <div class="vendor-chips">
+          <span class="vendor-chip">Schneider <span class="vc-count">4</span></span>
+          <span class="vendor-chip">Maverick <span class="vc-count">2</span></span>
+        </div>
+        <div class="sup-role-label">Cooling system failover support</div>
+        <div class="vendor-chips">
+          <span class="vendor-chip">Airedale <span class="vc-count">2</span></span>
+          <span class="vendor-chip">Southland <span class="vc-count" style="color:var(--danger)">2 ⚠</span></span>
+        </div>
+        <div class="sup-role-label">Load maintained throughout RVT</div>
+        <div class="vendor-chips">
+          <span class="vendor-chip">REI <span class="vc-count">10</span></span>
+          <span class="vendor-chip">TechPlan <span class="vc-count">2</span></span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="sec-label" style="margin-top:8px;">Full resource plan · all vendors</div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title"><span class="card-dot" style="background:var(--accent)"></span>Resources per day (constant across all wings)</div>
+      <table class="res-table">
+        <tr><td>Veolia (CxA Lead)</td><td>8</td><td class="res-bar-cell"><div class="rbar"><div class="rbar-fill" style="width:80%"></div></div></td></tr>
+        <tr><td>REI (IT/GPU loads)</td><td>10</td><td class="res-bar-cell"><div class="rbar"><div class="rbar-fill" style="width:100%"></div></div></td></tr>
+        <tr><td>Schneider (UPS/Elec)</td><td>4</td><td class="res-bar-cell"><div class="rbar"><div class="rbar-fill" style="width:40%"></div></div></td></tr>
+        <tr><td>DG (Controls/SCADA)</td><td>3</td><td class="res-bar-cell"><div class="rbar"><div class="rbar-fill" style="width:30%"></div></div></td></tr>
+        <tr><td>TechPlan</td><td>2</td><td class="res-bar-cell"><div class="rbar"><div class="rbar-fill" style="width:20%"></div></div></td></tr>
+        <tr><td>Ascent</td><td>2</td><td class="res-bar-cell"><div class="rbar"><div class="rbar-fill" style="width:20%"></div></div></td></tr>
+        <tr><td>Maverick</td><td>2</td><td class="res-bar-cell"><div class="rbar"><div class="rbar-fill" style="width:20%"></div></div></td></tr>
+        <tr><td>Airedale</td><td>2</td><td class="res-bar-cell"><div class="rbar"><div class="rbar-fill" style="width:20%"></div></div></td></tr>
+        <tr><td style="color:var(--danger);">Southland ⚠</td><td>2</td><td class="res-bar-cell"><div class="rbar"><div class="rbar-fill" style="width:20%;background:var(--danger)"></div></div></td></tr>
+        <tr><td style="color:var(--text3);font-style:italic;">JLL (B3D + B3C only)</td><td>2</td><td class="res-bar-cell"><div class="rbar"><div class="rbar-fill" style="width:20%;background:var(--info)"></div></div></td></tr>
+        <tr style="border-top:1px solid var(--border2)"><td style="font-weight:500;color:var(--text);">Total (B3D/C phases)</td><td style="font-family:'Fraunces',serif;font-size:18px;color:var(--accent);">37</td><td></td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="card-dot" style="background:var(--info)"></span>Schneider resource note (B3D thermal scan days)</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:10px;">
+        Schneider is reduced from 4 to <strong style="color:var(--warn);">1 resource</strong> on Mar 23–24 (B3D Mechanical Transformer Thermal Scan and 11–15 UPS PQM Install days). This is a documented schedule variance — ensure Schneider is aware and that the single resource is a qualified commissioning lead, not a general technician.
+      </div>
+      <div class="card-title" style="margin-top:12px;"><span class="card-dot" style="background:var(--danger)"></span>Xenergy &amp; Delta — zero resources</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.7;">
+        Both Xenergy and Delta show 0 resources across all wings and all dates. If these vendors have a contracted scope on this project, their absence should be flagged to DPR and OCI. If they have been formally replaced or de-scoped, document accordingly.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- LOOK-AHEAD PANEL -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="panel" id="panel-lookahead">
+
+  <div class="sec-label">3-day look-ahead · from Veolia DCR #43843 (Mar 18 report)</div>
+
+  <div class="la-tabs">
+    <button class="la-tab active" onclick="switchLA('19')">March 19</button>
+    <button class="la-tab" onclick="switchLA('20')">March 20 ★</button>
+    <button class="la-tab" onclick="switchLA('21')">March 21</button>
+  </div>
+
+  <div class="la-panel visible" id="la-19">
+    <div class="card">
+      <div class="card-title"><span class="card-dot" style="background:var(--accent)"></span>Planned activities — March 19, 2026</div>
+      <div class="la-item"><span class="bldg">B3C</span>Chillers Combined L3/L4 FPT</div>
+      <div class="la-item"><span class="bldg">B3C</span>AHU Combined L3/4 FPT cont'd</div>
+      <div class="la-item"><span class="bldg">B3C</span>FCA Combined L3/4 FPT cont'd <span class="cond">(*if available)</span></div>
+      <div class="la-item"><span class="bldg">B3D</span>CDU Combined L3/4 FPT <span class="cond">(*if available)</span></div>
+      <div class="la-item"><span class="bldg">B3A</span>RTU/VAV L4 FPT</div>
+      <div class="la-item"><span class="bldg">B3A</span>GPU Load Test, UPS Metering Validation, Burn-in, Thermal Scan, Discharge Test for 3A21–3A25</div>
+      <div class="la-item"><span class="bldg">B3A</span>RPPs BCM Verification cont'd</div>
+      <div class="la-item"><span class="bldg">B3E</span>RTU/VAV L4 FPT</div>
+      <div class="la-item"><span class="bldg">B3C</span>Mech Reserve MSBs Non-Energized Breaker Testing + L4 FPT <span class="cond">(*if available)</span></div>
+      <div class="la-item"><span class="bldg">B3C</span>3CP11 MSBs Non-Energized Breaker Testing + L4 FPT <span class="cond">(*if available)</span></div>
+      <div class="la-item"><span class="bldg">B3C</span>3C11MSB1 L4 FPT <span class="cond">(*if available)</span></div>
+      <div class="la-item"><span class="bldg">B3C</span>3C Critical + Mech UPSs (6 units remaining) L4 FPT cont'd</div>
+      <div class="la-item"><span class="bldg">B3D</span>3DP11 Non-Energized Breaker Testing + L4 FPT <span class="cond">(*if available)</span></div>
+      <div class="la-item"><span class="bldg">B3D</span>Pump ATSs L4 FPT</div>
+      <div class="la-item"><span class="bldg">B3D</span>Chiller 3DM21ATS 1/2/3 L4 FPT cont'd</div>
+      <div class="la-item"><span class="bldg">B3E</span>3E12MSB1 / 3EM11MSB1 / 3EP11MSB1 Non-Energized Breaker Testing + L4 FPT</div>
+      <div class="la-item"><span class="bldg">B4A</span>PDC4A1 Non-Energized Breaker L4 FPT</div>
+      <div class="la-item"><span class="bldg">B4C</span>Critical MSBs Non-Energized Breaker Testing + L4 FPT cont'd <span class="cond">(*if available)</span></div>
+      <div class="la-item"><span class="bldg">B4C</span>Mechanical MSBs Non-Energized Breaker Testing + L4 FPT <span class="cond">(*if available)</span></div>
+    </div>
+  </div>
+
+  <div class="la-panel" id="la-20">
+    <div class="card">
+      <div class="card-title"><span class="card-dot" style="background:var(--accent)"></span>Planned activities — March 20, 2026 <span style="color:var(--accent);font-size:11px;margin-left:6px;">(TODAY)</span></div>
+      <div class="la-item"><span class="bldg">B3C</span>Chillers Combined L3/L4 FPT</div>
+      <div class="la-item"><span class="bldg">B3C</span>AHU Combined L3/4 FPT</div>
+      <div class="la-item"><span class="bldg">B3C</span>FCA Combined L3/4 FPT <span class="cond">(*if available)</span></div>
+      <div class="la-item"><span class="bldg">B3D</span>CDU Combined L3/4 FPT</div>
+      <div class="la-item"><span class="bldg">B3A</span>RTU/VAV L4 FPT</div>
+      <div class="la-item"><span class="bldg">B3A</span>GPU Load Test, UPS Metering Validation, Burn-in, Thermal Scan, Discharge Test for 3A21–3A25</div>
+      <div class="la-item"><span class="bldg">B3A</span>GPU Load Test + Thermal Scans of Mech Transformers <span class="cond">(*if available)</span></div>
+      <div class="la-item"><span class="bldg">B3A</span>RPPs BCM Verification cont'd <span class="cond">(*if available)</span></div>
+      <div class="la-item"><span class="bldg">B3E</span>RTU/VAV L4 FPT</div>
+      <div class="la-item"><span class="bldg">B3C</span>Mech Reserve MSBs + 3CP11 MSBs Non-Energized + L4 FPT</div>
+      <div class="la-item"><span class="bldg">B3C</span>3C11MSB1 L4 FPT <span class="cond">(*if available)</span></div>
+      <div class="la-item"><span class="bldg">B3C</span>3C Critical + Mech UPSs (6 units remaining) L4 FPT cont'd</div>
+      <div class="la-item"><span class="bldg">B3D</span>3DP11 Non-Energized + L4 FPT <span class="cond">(*if available)</span></div>
+      <div class="la-item"><span class="bldg">B3D</span>Pump ATSs L4 FPT</div>
+      <div class="la-item"><span class="bldg">B3D</span>Chiller 3DM21ATS 1/2/3 L4 FPT cont'd</div>
+      <div class="la-item"><span class="bldg">B3E</span>3E12MSB1 Non-Energized Breaker Testing + L4 FPT</div>
+      <div class="la-item"><span class="bldg">B4A</span>PDC4A1 Non-Energized Breaker L4 FPT</div>
+      <div class="la-item"><span class="bldg">B4B</span>Transformer Alarm L4 Checks cont'd</div>
+      <div class="la-item"><span class="bldg">B4C</span>Critical + Mechanical MSBs Non-Energized + L4 FPT cont'd</div>
+    </div>
+  </div>
+
+  <div class="la-panel" id="la-21">
+    <div class="card">
+      <div class="card-title"><span class="card-dot" style="background:var(--accent)"></span>Planned activities — March 21, 2026</div>
+      <div class="la-item"><span class="bldg">B3C</span>Chillers / AHU / FCA Combined L3/L4 FPT</div>
+      <div class="la-item"><span class="bldg">B3D</span>CDU Combined L3/4 FPT</div>
+      <div class="la-item"><span class="bldg">B3A</span>RTU/VAV L4 FPT</div>
+      <div class="la-item"><span class="bldg">B3A</span>GPU Load Test, UPS Metering Validation, Burn-in, Thermal Scan, Discharge Test for 3A21–3A25</div>
+      <div class="la-item"><span class="bldg">B3A</span>RPPs BCM Verification cont'd <span class="cond">(*if available)</span></div>
+      <div class="la-item"><span class="bldg">B3E</span>RTU/VAV L4 FPT</div>
+      <div class="la-item"><span class="bldg">B3E</span>Generator Alarm + Shutdown Sequence L4 Checks — All Units</div>
+      <div class="la-item"><span class="bldg">B3C</span>Mech Reserve MSBs + 3CP11 MSBs Non-Energized + L4 FPT</div>
+      <div class="la-item"><span class="bldg">B3C</span>3C11MSB1 L4 FPT <span class="cond">(*if available)</span></div>
+      <div class="la-item"><span class="bldg">B3D</span>3DP11 Non-Energized + L4 FPT <span class="cond">(*if available)</span></div>
+      <div class="la-item"><span class="bldg">B3D</span>Pump ATSs L4 FPT · Chiller 3DM21ATS 1/2/3 L4 FPT cont'd</div>
+      <div class="la-item"><span class="bldg">B4A</span>PDC4A1 Non-Energized Breaker L4 FPT</div>
+      <div class="la-item"><span class="bldg">B4C</span>Critical + Mechanical MSBs Non-Energized + L4 FPT cont'd</div>
+    </div>
+  </div>
+
+  <div style="margin-top:20px;" class="sec-label">CxA team on-site (20 participants)</div>
+  <div class="card">
+    <div class="team-grid">
+      <span class="team-pill lead">Andy Thomson</span>
+      <span class="team-pill lead">Pedro Perez</span>
+      <span class="team-pill">Jarmen Patel</span>
+      <span class="team-pill">Tasaddaq Waqas</span>
+      <span class="team-pill">Bosu Thippabathina</span>
+      <span class="team-pill">Edward Rivera</span>
+      <span class="team-pill">Likitha Katey</span>
+      <span class="team-pill">Md Akteruzaman</span>
+      <span class="team-pill">Charles Baker</span>
+      <span class="team-pill">Vaibhav Sonar</span>
+      <span class="team-pill">Jeremy Burgin</span>
+      <span class="team-pill">Sohail Sayyed</span>
+      <span class="team-pill">Daniel Duarte</span>
+      <span class="team-pill">Nathan Lammers</span>
+      <span class="team-pill">Jimmy Jones</span>
+      <span class="team-pill">Aline Noble</span>
+      <span class="team-pill">Tai Leatherwood</span>
+      <span class="team-pill">Jerome Mallory</span>
+      <span class="team-pill">Alan Pope</span>
+      <span class="team-pill">Yaseen Yaseen</span>
+    </div>
+  </div>
+
+</div>
+
+</div><!-- end .main -->
+
+<script>
+function switchTab(id) {
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('visible'));
+  event.target.classList.add('active');
+  document.getElementById('panel-' + id).classList.add('visible');
+}
+function switchLA(d) {
+  document.querySelectorAll('.la-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.la-panel').forEach(p => p.classList.remove('visible'));
+  event.target.classList.add('active');
+  document.getElementById('la-' + d).classList.add('visible');
+}
+</script>
+</body>
+</html>
